@@ -1,0 +1,134 @@
+from sklearn.svm import SVC
+from operator import itemgetter
+from sklearn.utils import shuffle
+from sklearn.pipeline import Pipeline
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.model_selection import GridSearchCV
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+parameters = [
+    {
+        'clf__estimator': [SGDClassifier()], # SVM if hinge loss / logreg if log loss
+        'tfidf__max_df': (0.25, 0.5, 0.75, 1.0),
+        'tfidf__stop_words': ['english', None],
+        'clf__estimator__penalty': ('l2', 'elasticnet', 'l1'),
+        'clf__estimator__max_iter': [50, 80],
+        'clf__estimator__tol': [1e-4],
+        'clf__estimator__loss': ['hinge', 'log', 'modified_huber'],
+    },
+    {
+        'clf__estimator': [MultinomialNB()],
+        'tfidf__max_df': (0.25, 0.5, 0.75, 1.0),
+        'tfidf__stop_words': [None],
+        'clf__estimator__alpha': (1e-2, 1e-3, 1e-1),
+    },
+]
+
+
+#pipeline parameters
+    parameters = \
+        [ \
+            {
+                'clf': [MultinomialNB()],
+                'tf-idf__stop_words': ['english', None],
+                'clf__alpha': [0.001, 0.1, 1, 10, 100]
+            },
+
+            {
+                'clf': [SVC()],
+                'tf-idf__stop_words': ['english', None],
+                'clf__C': [0.001, 0.1, 1, 10, 100, 10e5],
+                'clf__kernel': ['linear', 'rbf'],
+                'clf__class_weight': ['balanced'],
+                'clf__probability': [True]
+            },
+
+            {
+                'clf': [DecisionTreeClassifier()],
+                'tf-idf__stop_words': ['english', None],
+                'clf__criterion': ['gini','entropy'],
+                'clf__splitter': ['best','random'],
+                'clf__class_weight':['balanced', None]
+            }
+        ]
+
+    #evaluating multiple classifiers
+    #based on pipeline parameters
+    #-------------------------------
+    result=[]
+
+    for params in parameters:
+
+        #classifier
+        clf = params['clf'][0]
+
+        #getting arguments by
+        #popping out classifier
+        params.pop('clf')
+
+        #pipeline
+        steps = [('tf-idf', TfidfVectorizer()), ('clf',clf)]
+
+        #cross validation using
+        #Grid Search
+        grid = GridSearchCV(Pipeline(steps), param_grid=params, cv=3)
+        grid.fit(features, labels)
+
+        #storing result
+        result.append\
+        (
+            {
+                'grid': grid,
+                'classifier': grid.best_estimator_,
+                'best score': grid.best_score_,
+                'best params': grid.best_params_,
+                'cv': grid.cv
+            }
+        )
+
+    #sorting result by best score
+    result = sorted(result, key=itemgetter('best score'),reverse=True)
+
+    #saving best classifier
+    grid = result[0]['grid']
+    joblib.dump(grid, 'classifier.pickle')
+
+
+pipeline = Pipeline([
+    ('tfidf', TfidfVectorizer(stop_words=stop_words)),
+    ('clf', OneVsRestClassifier(LogisticRegression(solver='sag')),
+])
+parameters = {
+    'tfidf__max_df': (0.25, 0.5, 0.75),
+    'tfidf__ngram_range': [(1, 1), (1, 2), (1, 3)],
+    "clf__estimator__C": [0.01, 0.1, 1],
+    "clf__estimator__class_weight": ['balanced', None],
+}
+
+I read following example on Pipelines and GridSearchCV in Python: http://www.davidsbatista.net/blog/2017/04/01/document_classification/
+
+Logistic Regression:
+
+pipeline = Pipeline([
+    ('tfidf', TfidfVectorizer(stop_words=stop_words)),
+    ('clf', OneVsRestClassifier(LogisticRegression(solver='sag')),
+])
+parameters = {
+    'tfidf__max_df': (0.25, 0.5, 0.75),
+    'tfidf__ngram_range': [(1, 1), (1, 2), (1, 3)],
+    "clf__estimator__C": [0.01, 0.1, 1],
+    "clf__estimator__class_weight": ['balanced', None],
+}
+SVM:
+
+pipeline = Pipeline([
+    ('tfidf', TfidfVectorizer(stop_words=stop_words)),
+    ('clf', OneVsRestClassifier(LinearSVC()),
+])
+parameters = {
+    'tfidf__max_df': (0.25, 0.5, 0.75),
+    'tfidf__ngram_range': [(1, 1), (1, 2), (1, 3)],
+    "clf__estimator__C": [0.01, 0.1, 1],
+    "clf__estimator__class_weight": ['balanced', None],
+}
